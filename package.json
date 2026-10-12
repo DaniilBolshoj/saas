@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "@supabase/auth-helpers-nextjs": "^0.15.0",
+    "@supabase/supabase-js": "^2.117.3",
+    "lucide-react": "^1.55.0",
+    "openai": "^7.32.0",
+    "zod": "^4.6.6"
+  }
+}

@@ -1,0 +1,35 @@
+name: Weekly broken-link check
+
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-links:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check links in batches
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          : "${APP_URL:?Set APP_URL in repository secrets}"
+          : "${CRON_SECRET:?Set CRON_SECRET in repository secrets}"
+
+          for attempt in {1..100}; do
+            response="$(curl --fail --silent --show-error \
+              --request GET \
+              --header "Authorization: Bearer ${CRON_SECRET}" \
+              "${APP_URL%/}/api/cron/check-links")"
+            processed="$(jq -r '.processed // 0' <<< "${response}")"
+            echo "Patikrinta nuorodų: ${processed}"
+            if (( processed < 6 )); then
+              break
+            fi
+          done

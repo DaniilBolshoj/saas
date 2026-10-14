@@ -6,6 +6,7 @@ create table public.ai_analyses (
   summary text not null check (char_length(summary) between 1 and 2000),
   action_items jsonb not null default '[]'::jsonb
     check (jsonb_typeof(action_items) = 'array'),
+  consented_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
   unique (id, organization_id)
 );
@@ -17,7 +18,7 @@ alter table public.links
   add constraint links_ai_analysis_same_org_fk
   foreign key (ai_analysis_id, organization_id)
   references public.ai_analyses(id, organization_id)
-  on delete restrict;
+  on delete set null (ai_analysis_id);
 
 create index ai_analyses_org_created_idx
   on public.ai_analyses (organization_id, created_at desc);
@@ -59,8 +60,13 @@ create policy "organization members create AI analyses"
     public.is_org_member(organization_id)
     and created_by = auth.uid()
   );
+create policy "authors or admins delete AI analyses"
+  on public.ai_analyses
+  for delete
+  to authenticated
+  using (created_by = auth.uid() or public.can_manage_org(organization_id));
 
-grant select, insert on public.ai_analyses to authenticated;
+grant select, insert, delete on public.ai_analyses to authenticated;
 grant select, insert, update, delete on public.links to authenticated;
 
 create table public.ai_analysis_usage (
@@ -112,3 +118,26 @@ $$;
 
 revoke all on function public.consume_ai_analysis_quota() from public, anon;
 grant execute on function public.consume_ai_analysis_quota() to authenticated;
+
+create or replace function public.delete_expired_ai_analyses()
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_deleted integer;
+begin
+  delete from public.ai_analyses
+  where created_at < now() - interval '90 days';
+  get diagnostics v_deleted = row_count;
+
+  delete from public.ai_analysis_usage
+  where bucket_start < now() - interval '2 days';
+
+  return v_deleted;
+end;
+$$;
+
+revoke all on function public.delete_expired_ai_analyses() from public, anon, authenticated;
+grant execute on function public.delete_expired_ai_analyses() to service_role;

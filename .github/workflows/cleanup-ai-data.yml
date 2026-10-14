@@ -1,0 +1,27 @@
+name: Daily AI data retention cleanup
+
+on:
+  schedule:
+    - cron: "41 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Delete expired AI analyses
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          : "${APP_URL:?Set APP_URL in repository secrets}"
+          : "${CRON_SECRET:?Set CRON_SECRET in repository secrets}"
+          curl --fail --silent --show-error \
+            --request GET \
+            --header "Authorization: Bearer ${CRON_SECRET}" \
+            "${APP_URL%/}/api/cron/cleanup"

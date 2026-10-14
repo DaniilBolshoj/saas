@@ -1,29 +1,15 @@
 import { lookup as dnsLookup } from "node:dns/promises";
-import { timingSafeEqual } from "node:crypto";
 import { isIP } from "node:net";
 import { Agent, fetch as undiciFetch } from "undici";
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-
-export const runtime = "nodejs";
-export const maxDuration = 10;
+import { isAuthorizedCronRequest } from "@/lib/cron-auth";
 
 const BATCH_SIZE = 6;
 const CONCURRENCY = 6;
 const REQUEST_TIMEOUT_MS = 3_000;
 const DNS_TIMEOUT_MS = 1_500;
 const MAX_REDIRECTS = 5;
-
-function authorized(request: Request): boolean {
-  const secret = process.env.CRON_SECRET;
-  const supplied = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-  if (!secret || !supplied) return false;
-
-  const expectedBuffer = Buffer.from(secret);
-  const suppliedBuffer = Buffer.from(supplied);
-  return expectedBuffer.length === suppliedBuffer.length
-    && timingSafeEqual(expectedBuffer, suppliedBuffer);
-}
 
 function ipv4Number(address: string): number {
   return address.split(".").reduce((result, octet) => (result * 256) + Number(octet), 0) >>> 0;
@@ -130,16 +116,31 @@ async function checkUrl(input: string): Promise<number | null> {
           dispatcher: agent,
           headers: { "user-agent": "LinkOps-Link-Checker/1.0" },
         });
+        if (response.status === 403 || response.status === 405 || response.status === 501) {
+          await response.body?.cancel();
+          response = await undiciFetch(currentUrl, {
+            method: "GET",
+            redirect: "manual",
+            signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+            dispatcher: agent,
+            headers: {
+              "user-agent": "LinkOps-Link-Checker/1.0",
+              range: "bytes=0-0",
+            },
+          });
+        }
       } finally {
         await agent.close();
       }
 
       if ([301, 302, 303, 307, 308].includes(response.status)) {
         const location = response.headers.get("location");
+        await response.body?.cancel();
         if (!location || redirectCount === MAX_REDIRECTS) return response.status;
         currentUrl = new URL(location, currentUrl);
         continue;
       }
+      await response.body?.cancel();
       return response.status;
     } catch {
       return null;
@@ -150,7 +151,7 @@ async function checkUrl(input: string): Promise<number | null> {
 }
 
 export async function GET(request: Request) {
-  if (!authorized(request)) {
+  if (!isAuthorizedCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -196,5 +197,5 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({ processed: links?.length ?? 0, hasMore: (links?.length ?? 0) === BATCH_SIZE });
+  return NextResponse.json({ processed: links?.length ?? 0 });
 }

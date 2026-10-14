@@ -3,12 +3,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export const runtime = "nodejs";
-export const maxDuration = 10;
-
 const requestSchema = z.object({
   organizationId: z.string().uuid(),
   text: z.string().trim().min(1).max(12_000),
+  consent: z.literal(true),
 }).strict();
 
 const analysisSchema = z.object({
@@ -146,4 +144,32 @@ export async function POST(request: Request) {
     analysis: savedAnalysis,
     extracted_links: analysis.extracted_links,
   }, { status: 201 });
+}
+
+export async function DELETE(request: Request) {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) return NextResponse.json({ error: "Reikia prisijungti." }, { status: 401 });
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Netaisyklingas JSON." }, { status: 400 });
+  }
+  const parsed = z.object({ analysisId: z.string().uuid() }).strict().safeParse(body);
+  if (!parsed.success) return NextResponse.json({ error: "Netaisyklingas analizės ID." }, { status: 400 });
+
+  const { data: deleted, error } = await supabase.from("ai_analyses")
+    .delete()
+    .eq("id", parsed.data.analysisId)
+    .eq("created_by", user.id)
+    .select("id")
+    .maybeSingle();
+  if (error) {
+    console.error("AI analysis deletion failed:", error.code);
+    return NextResponse.json({ error: "Nepavyko ištrinti analizės." }, { status: 500 });
+  }
+  if (!deleted) return NextResponse.json({ error: "Analizė nerasta arba negalite jos ištrinti." }, { status: 404 });
+  return NextResponse.json({ deleted: true });
 }

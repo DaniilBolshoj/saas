@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export const runtime = "nodejs";
-
 const requestSchema = z.object({
   organizationId: z.string().uuid(),
   title: z.string().trim().min(1).max(160),
@@ -17,6 +15,38 @@ const requestSchema = z.object({
   isImportant: z.boolean().default(false),
   aiAnalysisId: z.string().uuid().nullable().default(null),
 }).strict();
+
+export async function GET(request: Request) {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) return NextResponse.json({ error: "Reikia prisijungti." }, { status: 401 });
+
+  const params = new URL(request.url).searchParams;
+  const organizationId = z.string().uuid().safeParse(params.get("organizationId"));
+  const categoryInput = params.get("categoryId");
+  const categoryId = categoryInput ? z.string().uuid().safeParse(categoryInput) : null;
+  const query = params.get("q")?.trim().slice(0, 120) ?? "";
+  if (!organizationId.success || (categoryId && !categoryId.success)) {
+    return NextResponse.json({ error: "Netaisyklingi paieškos filtrai." }, { status: 400 });
+  }
+
+  const { data: isMember, error: membershipError } = await supabase.rpc("is_org_member", {
+    p_org_id: organizationId.data,
+  });
+  if (membershipError) return NextResponse.json({ error: "Nepavyko patikrinti prieigos." }, { status: 500 });
+  if (!isMember) return NextResponse.json({ error: "Neturite prieigos prie šios organizacijos." }, { status: 403 });
+
+  const { data: links, error } = await supabase.rpc("search_links", {
+    p_organization_id: organizationId.data,
+    p_query: query,
+    p_category_id: categoryId?.success ? categoryId.data : null,
+  });
+  if (error) {
+    console.error("Link search failed:", error.code);
+    return NextResponse.json({ error: "Nuorodų paieška nepavyko." }, { status: 500 });
+  }
+  return NextResponse.json({ links });
+}
 
 export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient();

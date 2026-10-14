@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 type ActionItem = {
   title: string;
@@ -27,7 +28,9 @@ type Props = {
 };
 
 export function AiAnalysisExplorer({ organizationId }: Props) {
+  const router = useRouter();
   const [text, setText] = useState("");
+  const [consent, setConsent] = useState(false);
   const [result, setResult] = useState<AnalysisResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +47,7 @@ export function AiAnalysisExplorer({ organizationId }: Props) {
       const response = await fetch("/api/ai/analyze", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ organizationId, text }),
+        body: JSON.stringify({ organizationId, text, consent }),
       });
       const payload = await response.json() as AnalysisResponse & { error?: string };
       if (!response.ok) throw new Error(payload.error ?? "Analizė nepavyko.");
@@ -76,6 +79,7 @@ export function AiAnalysisExplorer({ organizationId }: Props) {
       const payload = await response.json() as { error?: string };
       if (!response.ok) throw new Error(payload.error ?? "Nuorodos išsaugoti nepavyko.");
       setSavedUrls((current) => ({ ...current, [link.url]: true }));
+      router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Nuorodos išsaugoti nepavyko.");
     } finally {
@@ -104,12 +108,18 @@ export function AiAnalysisExplorer({ organizationId }: Props) {
           placeholder="Įklijuokite Slack, el. pašto ar kito pokalbio ištrauką..."
           className="block w-full resize-y rounded-md border border-slate-300 bg-white px-4 py-3 text-sm leading-6 shadow-sm outline-none transition focus:border-teal-700 focus:ring-2 focus:ring-teal-700/20"
         />
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-xs text-slate-500">{text.length.toLocaleString()} / 12 000</span>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <span className="block text-xs text-slate-500">{text.length.toLocaleString()} / 12 000</span>
+            <label className="flex max-w-2xl items-start gap-2 text-xs leading-5 text-slate-600">
+              <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-0.5 size-4 shrink-0 accent-teal-900" />
+              Sutinku, kad tekstas būtų siunčiamas OpenAI analizei ir saugomas LinkOps iki 90 dienų. Jame gali būti asmens ar konfidencialių duomenų.
+            </label>
+          </div>
           <button
             type="button"
             onClick={analyze}
-            disabled={loading || text.trim().length === 0}
+            disabled={loading || text.trim().length === 0 || !consent}
             className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-teal-800 px-4 text-sm font-medium text-white transition hover:bg-teal-900 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading && <span aria-hidden="true" className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
@@ -133,6 +143,23 @@ export function AiAnalysisExplorer({ organizationId }: Props) {
 
       {result && (
         <div className="space-y-5" aria-live="polite">
+          <div className="flex justify-end">
+            <button type="button" onClick={async () => {
+              try {
+                const response = await fetch("/api/ai/analyze", {
+                  method: "DELETE",
+                  headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ analysisId: result.analysis.id }),
+                });
+                if (!response.ok) throw new Error("Analizės ištrinti nepavyko.");
+                setResult(null);
+                setText("");
+                setConsent(false);
+              } catch (caught) {
+                setError(caught instanceof Error ? caught.message : "Analizės ištrinti nepavyko.");
+              }
+            }} className="text-xs font-medium text-slate-500 underline underline-offset-4 hover:text-rose-700">Ištrinti šią analizę</button>
+          </div>
           <article className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="text-base font-semibold">Santrauka</h2>
             <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{result.analysis.summary}</p>

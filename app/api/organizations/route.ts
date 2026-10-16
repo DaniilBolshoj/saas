@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     p_name: parsed.data.name,
   });
   if (error) {
-    console.error("Organization creation failed:", error.code);
+    console.error("Organization creation failed:", error.code, error.message, error.details, error.hint);
     return NextResponse.json({ error: "Nepavyko sukurti komandos." }, { status: 500 });
   }
   return NextResponse.json({ organizationId }, { status: 201 });

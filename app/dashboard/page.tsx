@@ -30,7 +30,7 @@ async function DashboardContent() {
   if (!memberships?.length) redirect("/onboarding");
 
   const membership = memberships[0];
-  const [{ data: organization, error: organizationError }, { data: categories, error: categoriesError }, { data: links, error: linksError }] = await Promise.all([
+  const [{ data: organization, error: organizationError }, { data: categories, error: categoriesError }, { data: links, error: linksError }, { data: profile, error: profileError }] = await Promise.all([
     supabase.from("organizations").select("id, name").eq("id", membership.organization_id).single(),
     supabase.from("categories").select("id, name, color").eq("organization_id", membership.organization_id).order("name"),
     supabase.from("links")
@@ -39,8 +39,9 @@ async function DashboardContent() {
       .order("is_important", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(100),
+    supabase.from("profiles").select("preferred_language").eq("id", user.id).maybeSingle(),
   ]);
-  if (organizationError || categoriesError || linksError || !organization) {
+  if (organizationError || categoriesError || linksError || profileError || !organization) {
     throw new Error("Nepavyko įkelti komandos darbo srities.");
   }
 
@@ -59,6 +60,7 @@ async function DashboardContent() {
       initialCategories={categories ?? []}
       initialLinks={initialLinks}
       userEmail={user.email ?? ""}
+      preferredLanguage={profile?.preferred_language ?? "lt"}
     />
   );
 }

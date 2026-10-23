@@ -28,11 +28,12 @@ type Props = {
   initialCategories: Category[];
   initialLinks: LinkItem[];
   userEmail: string;
+  preferredLanguage: string;
 };
 
 const emptyDraft: LinkDraft = { title: "", url: "", description: "", categoryId: "", isImportant: false };
 
-export function DashboardWorkspace({ organizationId, organizationName, role, initialCategories, initialLinks, userEmail }: Props) {
+export function DashboardWorkspace({ organizationId, organizationName, role, initialCategories, initialLinks, userEmail, preferredLanguage }: Props) {
   const router = useRouter();
   const [categories, setCategories] = useState(initialCategories);
   const [links, setLinks] = useState(initialLinks);
@@ -214,7 +215,7 @@ export function DashboardWorkspace({ organizationId, organizationName, role, ini
               )}
             </div>
           </section>
-          <section className="border-t border-slate-200 pt-8"><AiAnalysisExplorer organizationId={organizationId} /></section>
+          <section className="border-t border-slate-200 pt-8"><AiAnalysisExplorer organizationId={organizationId} preferredLanguage={preferredLanguage} /></section>
         </div>
       </div>
 

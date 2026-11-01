@@ -1,6 +1,6 @@
 # LinkOps
 
-Nuorodų ir skaitmeninių išteklių komandinis centras. MVP apima Google OAuth, komandos onboarding, nuorodų CRUD/kategorijas, fuzzy paiešką, Chat-to-Resource Explorer ir savaitinį broken-link tikrintuvą.
+Freelancerio darbo erdvė klientų projektams: AI projektų vertinimas, nuorodų tvarkymas, kategorijos, paieška ir savaitinis neveikiančių nuorodų tikrinimas.
 
 ## Reikalavimai
 
@@ -21,7 +21,7 @@ Užpildykite `.env.local` reikšmes. `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KE
 
 ## Supabase nustatymas
 
-1. Naujam Supabase projektui SQL Editor'yje iš eilės paleiskite visas migracijas iš `supabase/migrations/`: `20261011000000_core.sql`, `20261012000000_ai_analyses.sql`, `20261017000000_projects_clients_tasks.sql`, `20261023000000_preferred_language.sql` ir `20261101000000_ai_quota_successful_requests.sql`.
+1. Naujam Supabase projektui SQL Editor'yje iš eilės paleiskite visas migracijas iš `supabase/migrations/`: `20261011000000_core.sql`, `20261012000000_ai_analyses.sql`, `20261017000000_projects_clients_tasks.sql`, `20261023000000_preferred_language.sql`, `20261101000000_ai_quota_successful_requests.sql` ir `20261102000000_ai_project_assessments.sql`.
 2. Supabase Auth → Providers įjunkite Google OAuth ir užregistruokite Google OAuth client ID/secret.
 3. Supabase Auth URL Configuration pridėkite `http://localhost:3000/auth/callback` ir produkcinį `https://<domenas>/auth/callback` į Redirect URLs; Site URL nustatykite aplikacijos adresu.
 4. Į `.env.local` įrašykite Supabase Project URL, anon/public key ir service role key. Service role naudojamas tik serverio cron maršrute.
@@ -44,7 +44,7 @@ Vercel projekte sukurkite tuos pačius environment variables. GitHub repository 
 
 - `GET /` produkto pristatymas; `/login` Google OAuth; `/auth/callback` keičia OAuth kodą į sesiją.
 - `/onboarding` sukuria organizaciją ir pirmąjį `owner` per transakcinę RPC funkciją.
-- `/dashboard` pateikia komandos nuorodas, kategorijas ir fuzzy paiešką; `/dashboard/ai` – AI Explorer su naudotojo kalbos nustatymu. Projektų, klientų ir užduočių lentelės paruoštos migracijoje, tačiau jų UI/API dar neįgyvendinti.
+- `/dashboard` pateikia nuorodas, kategorijas ir fuzzy paiešką; `/dashboard/ai` – AI projektų įvertinimą pagal kliento aprašymą. Duomenų bazėje taip pat paruoštos projektų, klientų ir užduočių lentelės, tačiau jų UI/API dar neįgyvendinti.
 - `POST /api/ai/analyze` reikalauja aiškaus sutikimo, analizuoja tekstą pasirinkta kalba, leidžia perjungti santraukos kalbą ir sugeneruoti kliento kalbos atsakymo juodraštį.
 - `DELETE /api/ai/analyze` leidžia autoriui ištrinti analizę ir originalų tekstą.
 - `GET/POST /api/links`, `PATCH/DELETE /api/links/[id]` valdo nuorodas; `GET/POST /api/categories` valdo kategorijas.
@@ -52,6 +52,8 @@ Vercel projekte sukurkite tuos pačius environment variables. GitHub repository 
 - `GET /api/cron/cleanup` kasdien ištrina AI analizes, senesnes nei 90 dienų, ir nebereikalingas kvotas.
 
 AI tekstas siunčiamas Google Gemini API ir saugomas Supabase iki 90 dienų; sąsajoje prašomas sutikimas prieš siuntimą. Naudotojas gali analizę ištrinti iškart. Numatytoji analizės kalba nustatoma profilyje; atskirai galima pasirinkti užsakovo kalbą arba kitą palaikomą kalbą. Atsakymo juodraštis generuojamas užsakovo kalba ir nėra automatiškai siunčiamas. AI kvota įskaitoma tik po sėkmingo modelio atsakymo; prieš realų klientų naudojimą pridėkite privatumo politiką, duomenų tvarkymo sutartis, eksportavimo/ištrynimo procesą ir patikrinkite Google Gemini API duomenų tvarkymo sąlygas. API kainodara ir limitai priklauso nuo Google AI Studio projekto; kvota riboja vieną naudotoją iki 5 AI užklausų per minutę ir 50 per parą.
+
+AI projekto vertinime pateikiama santrauka, aiškūs ir neaiškūs reikalavimai, įrodymais pagrįstos rizikos, tiksliai cituojamas terminas ir biudžetas (arba „Nenurodyta“), klausimai klientui, surikiuoti veiksmai su laiku ir rekomendacija. Vertinimo duomenys saugomi `ai_analyses.project_assessment` JSONB stulpelyje.
 
 ## Vykdymo laikas ir billing
 

@@ -26,7 +26,7 @@ async function DashboardContent() {
     .eq("user_id", user.id)
     .order("joined_at", { ascending: true })
     .limit(1);
-  if (membershipError) throw new Error("Nepavyko gauti komandos narystės.");
+  if (membershipError) throw new Error("Nepavyko gauti darbo erdvės prieigos.");
   if (!memberships?.length) redirect("/onboarding");
 
   const membership = memberships[0];
@@ -41,7 +41,7 @@ async function DashboardContent() {
       .limit(100),
   ]);
   if (organizationError || categoriesError || linksError || !organization) {
-    throw new Error("Nepavyko įkelti komandos darbo srities.");
+    throw new Error("Nepavyko įkelti darbo erdvės.");
   }
 
   const categoryNames = new Map((categories ?? []).map((category) => [category.id, category.name]));

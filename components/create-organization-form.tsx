@@ -20,11 +20,11 @@ export function CreateOrganizationForm() {
         body: JSON.stringify({ name }),
       });
       const payload = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(payload.error ?? "Komandos sukurti nepavyko.");
+      if (!response.ok) throw new Error(payload.error ?? "Darbo erdvės sukurti nepavyko.");
       router.replace("/dashboard");
       router.refresh();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Komandos sukurti nepavyko.");
+      setError(caught instanceof Error ? caught.message : "Darbo erdvės sukurti nepavyko.");
     } finally {
       setLoading(false);
     }
@@ -33,12 +33,12 @@ export function CreateOrganizationForm() {
   return (
     <form onSubmit={submit} className="space-y-4">
       <label className="block space-y-2 text-sm font-medium">
-        Komandos pavadinimas
-        <input value={name} onChange={(event) => setName(event.target.value)} required maxLength={100} className="min-h-11 w-full rounded-md border border-slate-300 px-3 font-normal outline-none focus:border-teal-800 focus:ring-2 focus:ring-teal-800/20" placeholder="Pvz., Northstar Studio" />
+        Darbo erdvės pavadinimas
+        <input value={name} onChange={(event) => setName(event.target.value)} required maxLength={100} className="min-h-11 w-full rounded-md border border-slate-300 px-3 font-normal outline-none focus:border-teal-800 focus:ring-2 focus:ring-teal-800/20" placeholder="Pvz., Mano freelance veikla" />
       </label>
       {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
       <button disabled={loading || !name.trim()} className="min-h-11 w-full rounded-md bg-teal-900 px-4 text-sm font-medium text-white hover:bg-teal-950 disabled:opacity-50">
-        {loading ? "Kuriama..." : "Sukurti komandą"}
+        {loading ? "Kuriama..." : "Sukurti darbo erdvę"}
       </button>
     </form>
   );

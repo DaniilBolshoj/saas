@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "LinkOps - AI nuorodų hub'as",
-  description: "Išmanus komandos išteklių valdymas",
+  title: "LinkOps | Freelancerio darbo erdvė",
+  description: "Klientų projektų vertinimas ir išteklių valdymas freelancerio darbo erdvėje.",
 };
 
 export default function RootLayout({

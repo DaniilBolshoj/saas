@@ -15,7 +15,7 @@ async function AiExplorerContent() {
     .eq("user_id", user.id)
     .order("joined_at", { ascending: true })
     .limit(1);
-  if (membershipError) throw new Error("Nepavyko gauti komandos narystės.");
+  if (membershipError) throw new Error("Nepavyko gauti darbo erdvės prieigos.");
   if (!memberships?.length) redirect("/onboarding");
 
   const [{ data: organization, error: organizationError }, { data: profile, error: profileError }] = await Promise.all([
@@ -30,7 +30,7 @@ async function AiExplorerContent() {
       .eq("id", user.id)
       .maybeSingle(),
   ]);
-  if (organizationError || !organization) throw new Error("Nepavyko įkelti komandos.");
+  if (organizationError || !organization) throw new Error("Nepavyko įkelti darbo erdvės.");
   if (profileError) throw new Error("Nepavyko įkelti kalbos nustatymo.");
 
   return (

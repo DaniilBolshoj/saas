@@ -1,18 +1,18 @@
 export const aiLanguages = [
-  { code: "lt", name: "Lietuvių" },
-  { code: "en", name: "English" },
-  { code: "ru", name: "Русский" },
-  { code: "pl", name: "Polski" },
-  { code: "fr", name: "Français" },
-  { code: "de", name: "Deutsch" },
-  { code: "es", name: "Español" },
-  { code: "uk", name: "Українська" },
-  { code: "it", name: "Italiano" },
-  { code: "pt", name: "Português" },
-  { code: "nl", name: "Nederlands" },
-  { code: "sv", name: "Svenska" },
-  { code: "ja", name: "日本語" },
-  { code: "zh", name: "中文" },
+  { code: "lt", name: "Lietuvių", nameInLithuanian: "lietuvių" },
+  { code: "en", name: "English", nameInLithuanian: "anglų" },
+  { code: "ru", name: "Русский", nameInLithuanian: "rusų" },
+  { code: "pl", name: "Polski", nameInLithuanian: "lenkų" },
+  { code: "fr", name: "Français", nameInLithuanian: "prancūzų" },
+  { code: "de", name: "Deutsch", nameInLithuanian: "vokiečių" },
+  { code: "es", name: "Español", nameInLithuanian: "ispanų" },
+  { code: "uk", name: "Українська", nameInLithuanian: "ukrainiečių" },
+  { code: "it", name: "Italiano", nameInLithuanian: "italų" },
+  { code: "pt", name: "Português", nameInLithuanian: "portugalų" },
+  { code: "nl", name: "Nederlands", nameInLithuanian: "olandų" },
+  { code: "sv", name: "Svenska", nameInLithuanian: "švedų" },
+  { code: "ja", name: "日本語", nameInLithuanian: "japonų" },
+  { code: "zh", name: "中文", nameInLithuanian: "kinų" },
 ] as const;
 
 export const aiLanguageCodes = aiLanguages.map(({ code }) => code) as [
@@ -22,4 +22,8 @@ export const aiLanguageCodes = aiLanguages.map(({ code }) => code) as [
 
 export function getAiLanguageName(code: string) {
   return aiLanguages.find((language) => language.code === code)?.name;
+}
+
+export function getAiLanguageNameInLithuanian(code: string) {
+  return aiLanguages.find((language) => language.code === code)?.nameInLithuanian;
 }

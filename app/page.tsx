@@ -27,9 +27,9 @@ function LandingPage() {
       </nav>
       <section className="mx-auto grid max-w-7xl gap-12 px-6 pb-20 pt-16 md:grid-cols-[1.1fr_0.9fr] md:items-center md:pb-28 md:pt-20">
         <div className="max-w-2xl space-y-7">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-800">Komandos darbo atmintis</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-800">Freelancerio darbo atmintis</p>
           <h1 className="max-w-xl text-4xl font-semibold leading-tight sm:text-5xl">Pokalbiai tampa aiškiais projekto ištekliais.</h1>
-          <p className="max-w-xl text-base leading-7 text-slate-600">Ištraukite veiksmus ir svarbias nuorodas iš chaotiškų pokalbių, o komandos Figma, Drive, Jira ir GitHub išteklius laikykite vienoje vietoje.</p>
+          <p className="max-w-xl text-base leading-7 text-slate-600">Įvertinkite kliento užklausas, išgryninkite reikalavimus, biudžetą ir rizikas, o projekto nuorodas laikykite vienoje vietoje.</p>
           <Link href="/login" className="inline-flex min-h-11 items-center rounded-md bg-teal-900 px-5 text-sm font-medium text-white hover:bg-teal-950">Pradėti nemokamai</Link>
         </div>
         <div className="grid gap-3 border-l-2 border-teal-800/20 pl-6 sm:pl-8">

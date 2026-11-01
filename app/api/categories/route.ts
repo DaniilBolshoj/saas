@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     p_org_id: parsed.data.organizationId,
   });
   if (roleError) return NextResponse.json({ error: "Nepavyko patikrinti prieigos." }, { status: 500 });
-  if (!isAdmin) return NextResponse.json({ error: "Kategorijas gali kurti komandos administratoriai." }, { status: 403 });
+  if (!isAdmin) return NextResponse.json({ error: "Kategorijas gali kurti darbo erdvės administratoriai." }, { status: 403 });
 
   const { data: category, error } = await supabase.from("categories").insert({
     organization_id: parsed.data.organizationId,

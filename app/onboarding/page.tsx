@@ -28,8 +28,8 @@ async function OnboardingContent() {
       <section className="w-full max-w-lg space-y-7 rounded-lg border border-[#d9e2dc] bg-white p-8 shadow-sm">
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">Pirmas žingsnis</p>
-          <h1 className="text-2xl font-semibold">Sukurkite komandos erdvę</h1>
-          <p className="text-sm leading-6 text-slate-600">Čia saugosite bendras nuorodas ir galėsite analizuoti komandos pokalbius.</p>
+          <h1 className="text-2xl font-semibold">Sukurkite savo darbo erdvę</h1>
+          <p className="text-sm leading-6 text-slate-600">Čia tvarkysite projektų nuorodas ir įvertinsite naujas klientų užklausas.</p>
         </div>
         <CreateOrganizationForm />
       </section>

@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowUpRight, CheckCircle2, FileText, Link2, LockKeyhole, Sparkles, Trash2 } from "lucide-react";
-import { aiLanguages, getAiLanguageName } from "@/lib/ai-languages";
+import { AlertTriangle, ArrowUpRight, CheckCircle2, CircleHelp, FileText, Link2, LockKeyhole, Sparkles, Trash2 } from "lucide-react";
+import { aiLanguages, getAiLanguageName, getAiLanguageNameInLithuanian } from "@/lib/ai-languages";
 
 type ActionItem = {
+  order: number;
   title: string;
   description: string;
+  timing: string;
 };
 
 type ExtractedLink = {
@@ -18,7 +20,13 @@ type ExtractedLink = {
 
 type AnalysisContent = {
   summary: string;
+  requirements: { requirement: string; clarity: "clear" | "unclear"; evidence: string }[];
+  risks: { risk: string; severity: "critical" | "high" | "medium" | "low"; evidence: string }[];
+  deadline: { value: string; evidence: string };
+  budget: { value: string; evidence: string };
+  client_questions: string[];
   action_items: ActionItem[];
+  recommendation: { decision: "take" | "negotiate" | "decline"; rationale: string };
   extracted_links: ExtractedLink[];
 };
 
@@ -27,6 +35,7 @@ type AnalysisResponse = {
     id: string;
     summary: string;
     action_items: ActionItem[];
+    project_assessment: Omit<AnalysisContent, "summary" | "action_items" | "extracted_links">;
   };
   extracted_links: ExtractedLink[];
   sourceLanguage: string;
@@ -80,6 +89,7 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
       const baseAnalysis = {
         summary: payload.analysis.summary,
         action_items: payload.analysis.action_items,
+        ...payload.analysis.project_assessment,
         extracted_links: payload.extracted_links,
       };
       setDisplayedAnalysis(baseAnalysis);
@@ -120,6 +130,7 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
     const baseAnalysis = {
       summary: result.analysis.summary,
       action_items: result.analysis.action_items,
+      ...result.analysis.project_assessment,
       extracted_links: result.extracted_links,
     };
     if (language === preferredLanguage) {
@@ -250,14 +261,15 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
           AI palaikomas Explorer
         </span>
         <div className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">Paverskite pokalbį projekto ištekliais</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">Įvertinkite kliento projektą prieš sutikdami</h1>
           <p className="max-w-2xl text-sm leading-6 text-slate-600">
-            Įklijuokite komandos susirašinėjimą. AI išskirs santrauką, veiksmus ir jame rastas nuorodas.
+            Įklijuokite kliento žinutę ar projekto aprašymą. Gausite reikalavimus, rizikas, klausimus klientui ir konkrečius kitus žingsnius.
           </p>
         </div>
       </header>
 
-      <div className="space-y-3">
+      <div className="space-y-5">
+        <div className="space-y-2">
         <label htmlFor="preferred-language" className="block text-sm font-medium">Numatytoji AI kalba</label>
         <select
           id="preferred-language"
@@ -270,16 +282,19 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
             <option key={language.code} value={language.code}>{language.name}</option>
           ))}
         </select>
-        <label htmlFor="conversation" className="text-sm font-medium">Susirašinėjimo tekstas</label>
+        </div>
+        <div className="space-y-2">
+        <label htmlFor="conversation" className="block text-sm font-medium">Kliento žinutė ar projekto aprašymas</label>
         <textarea
           id="conversation"
           value={text}
           onChange={(event) => setText(event.target.value)}
           maxLength={12_000}
           rows={9}
-          placeholder="Įklijuokite Slack, el. pašto ar kito pokalbio ištrauką..."
+          placeholder="Įklijuokite kliento el. laišką, pokalbio ištrauką ar projekto aprašymą..."
           className="block w-full resize-y rounded-md border border-slate-300 bg-white px-4 py-3 text-sm leading-6 shadow-sm outline-none transition focus:border-teal-700 focus:ring-2 focus:ring-teal-700/20"
         />
+        </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
             <span className="block text-xs text-slate-500">{text.length.toLocaleString()} / 12 000</span>
@@ -361,27 +376,100 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
               <p className="mt-3 text-sm text-slate-500">Veiksmų nerasta.</p>
             ) : (
               <ul className="mt-3 divide-y divide-slate-100">
-                {displayedAnalysis.action_items.map((item, index) => {
-                  const isCompleted = completedActions[index] ?? false;
-                  return (
-                    <li key={`${item.title}-${index}`} className="py-3 first:pt-0 last:pb-0">
-                      <label className="flex cursor-pointer items-start gap-3">
-                        <input
-                          type="checkbox"
-                          checked={isCompleted}
-                          onChange={(event) => setCompletedActions((current) => ({ ...current, [index]: event.target.checked }))}
-                          className="mt-0.5 size-4 shrink-0 accent-emerald-600"
-                        />
-                        <span className="min-w-0">
-                          <span className={`block text-sm font-medium ${isCompleted ? "text-slate-500 line-through" : "text-slate-900"}`}>{item.title}</span>
-                          {item.description && <span className="mt-1 block text-sm leading-5 text-slate-600">{item.description}</span>}
-                        </span>
-                      </label>
-                    </li>
-                  );
-                })}
+                {displayedAnalysis.action_items
+                  .map((item, index) => ({ item, index }))
+                  .sort((left, right) => left.item.order - right.item.order)
+                  .map(({ item, index }) => {
+                    const isCompleted = completedActions[index] ?? false;
+                    return (
+                      <li key={`${item.title}-${index}`} className="py-3 first:pt-0 last:pb-0">
+                        <label className="flex cursor-pointer items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={isCompleted}
+                            onChange={(event) => setCompletedActions((current) => ({ ...current, [index]: event.target.checked }))}
+                            className="mt-0.5 size-4 shrink-0 accent-emerald-600"
+                          />
+                          <span className="min-w-0">
+                            <span className={`block text-sm font-medium ${isCompleted ? "text-slate-500 line-through" : "text-slate-900"}`}>{item.order}. {item.title}</span>
+                            {item.description && <span className="mt-1 block text-sm leading-5 text-slate-600">{item.description}</span>}
+                            <span className="mt-1 block text-xs font-medium text-teal-800">{item.timing}</span>
+                          </span>
+                        </label>
+                      </li>
+                    );
+                  })}
               </ul>
             )}
+          </section>
+
+          <section className="grid gap-4 sm:grid-cols-2">
+            <article className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="flex items-center gap-2 text-base font-semibold"><FileText aria-hidden="true" className="size-4 text-teal-700" />Terminas</h2>
+              <p className="mt-2 text-sm font-medium text-slate-900">{displayedAnalysis.deadline.value}</p>
+              {displayedAnalysis.deadline.evidence && <p className="mt-1 text-xs text-slate-500">„{displayedAnalysis.deadline.evidence}“</p>}
+            </article>
+            <article className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="flex items-center gap-2 text-base font-semibold"><FileText aria-hidden="true" className="size-4 text-teal-700" />Biudžetas</h2>
+              <p className="mt-2 text-sm font-medium text-slate-900">{displayedAnalysis.budget.value}</p>
+              {displayedAnalysis.budget.evidence && <p className="mt-1 text-xs text-slate-500">„{displayedAnalysis.budget.evidence}“</p>}
+            </article>
+          </section>
+
+          <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="text-base font-semibold">Reikalavimai</h2>
+            {displayedAnalysis.requirements.length === 0 ? (
+              <p className="mt-3 text-sm text-slate-500">Konkrečių reikalavimų tekste nerasta.</p>
+            ) : (
+              <ul className="mt-3 space-y-3">
+                {displayedAnalysis.requirements.map((requirement, index) => (
+                  <li key={`${requirement.requirement}-${index}`} className="border-t border-slate-100 pt-3 first:border-0 first:pt-0">
+                    <p className="text-sm font-medium">{requirement.requirement}</p>
+                    <p className={`mt-1 text-xs font-semibold ${requirement.clarity === "clear" ? "text-emerald-700" : "text-amber-700"}`}>
+                      {requirement.clarity === "clear" ? "Aišku" : "Neaišku / patikslinti"}
+                    </p>
+                    {requirement.evidence && <p className="mt-1 text-xs text-slate-500">„{requirement.evidence}“</p>}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="rounded-md border border-rose-200 bg-rose-50/50 p-5 shadow-sm">
+            <h2 className="flex items-center gap-2 text-base font-semibold text-rose-950">
+              <AlertTriangle aria-hidden="true" className="size-4 text-rose-700" />Rizikos
+            </h2>
+            {displayedAnalysis.risks.length === 0 ? (
+              <p className="mt-3 text-sm text-slate-600">Aiškių rizikų tekste nenustatyta.</p>
+            ) : (
+              <ul className="mt-3 space-y-3">
+                {displayedAnalysis.risks.map((risk, index) => (
+                  <li key={`${risk.risk}-${index}`} className="border-t border-rose-100 pt-3 first:border-0 first:pt-0">
+                    <p className="text-sm font-medium text-slate-900">{risk.risk}</p>
+                    <p className="mt-1 text-xs font-bold uppercase text-rose-800">
+                      {risk.severity === "critical" ? "Kritinė" : risk.severity === "high" ? "Aukšta" : risk.severity === "medium" ? "Vidutinė" : "Žema"}
+                    </p>
+                    {risk.evidence && <p className="mt-1 text-xs text-slate-600">„{risk.evidence}“</p>}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="rounded-md border border-amber-200 bg-amber-50/50 p-5 shadow-sm">
+            <h2 className="flex items-center gap-2 text-base font-semibold"><CircleHelp aria-hidden="true" className="size-4 text-amber-700" />Klausimai klientui</h2>
+            {displayedAnalysis.client_questions.length === 0 ? (
+              <p className="mt-3 text-sm text-slate-600">Papildomų klausimų nenustatyta.</p>
+            ) : (
+              <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-slate-800">
+                {displayedAnalysis.client_questions.map((question, index) => <li key={`${question}-${index}`}>{question}</li>)}
+              </ol>
+            )}
+          </section>
+
+          <section className={`rounded-md border p-5 shadow-sm ${displayedAnalysis.recommendation.decision === "decline" ? "border-rose-200 bg-rose-50" : displayedAnalysis.recommendation.decision === "negotiate" ? "border-amber-200 bg-amber-50" : "border-emerald-200 bg-emerald-50"}`}>
+            <h2 className="text-base font-semibold">Rekomendacija: {displayedAnalysis.recommendation.decision === "take" ? "Imtis" : displayedAnalysis.recommendation.decision === "negotiate" ? "Derėtis prieš sutinkant" : "Atsisakyti"}</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-800">{displayedAnalysis.recommendation.rationale}</p>
           </section>
 
           <section className="space-y-3">
@@ -419,7 +507,7 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
             <div>
               <h2 className="text-base font-semibold">Atsakymo užsakovui juodraštis</h2>
               <p className="mt-1 text-sm leading-5 text-slate-600">
-                Parašykite atsakymo esmę {getAiLanguageName(preferredLanguage)} kalba. AI paruoš juodraštį užsakovo kalba; jis nebus automatiškai išsiųstas.
+                Parašykite atsakymo esmę {getAiLanguageNameInLithuanian(preferredLanguage)} kalba. AI paruoš juodraštį kliento kalba; jis nebus automatiškai išsiųstas.
               </p>
             </div>
             <textarea
@@ -454,7 +542,7 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
           </span>
           <h2 className="mt-5 text-lg font-bold tracking-tight text-slate-900">Įžvalgos pasirodys čia</h2>
           <p className="mt-2 max-w-xs text-sm leading-6 text-slate-500">
-            Įklijuokite pokalbio tekstą, patvirtinkite sutikimą ir paleiskite analizę. Santrauka, veiksmai bei rastos nuorodos bus rodomi šiame skydelyje.
+            Įklijuokite kliento žinutę, patvirtinkite sutikimą ir paleiskite analizę. Čia matysite reikalavimus, rizikas, sąlygas, klausimus ir konkrečius veiksmus.
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-2">
             <span className="rounded-full bg-slate-50 px-3 py-1 text-xs font-medium text-slate-500">Santrauka</span>

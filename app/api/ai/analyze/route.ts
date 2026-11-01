@@ -171,18 +171,19 @@ export async function POST(request: Request) {
 
   const { data: quota, error: quotaError } = await supabase.rpc("consume_ai_analysis_quota");
   if (quotaError) {
-    console.error("AI quota check failed:", quotaError.code);
+    console.error("AI quota preflight check failed:", quotaError.code);
     return NextResponse.json({ error: "Nepavyko patikrinti AI naudojimo limito." }, { status: 500 });
   }
   const quotaResult = z.object({
     minute_count: z.number(),
     day_count: z.number(),
+    allowed: z.boolean(),
   }).safeParse(quota);
   if (!quotaResult.success) {
     return NextResponse.json({ error: "Netaisyklingas AI limito atsakas." }, { status: 500 });
   }
-  if (quotaResult.data.minute_count > 5 || quotaResult.data.day_count > 50) {
-    const retryAfter = quotaResult.data.minute_count > 5 ? "60" : "86400";
+  if (!quotaResult.data.allowed) {
+    const retryAfter = quotaResult.data.minute_count >= 5 ? "60" : "86400";
     return NextResponse.json(
       { error: "Pasiektas AI analizės limitas. Bandykite vėliau." },
       { status: 429, headers: { "Retry-After": retryAfter } },
@@ -296,6 +297,33 @@ export async function POST(request: Request) {
       error instanceof z.ZodError ? `Invalid response fields: ${error.issues.map((issue) => issue.path.join(".")).join(", ")}` : error instanceof Error ? error.name : "unknown error",
     );
     return NextResponse.json({ error: "AI analizė nepavyko. Bandykite dar kartą." }, { status: 502 });
+  }
+
+  const extractedLinks = analysis.extracted_links.filter((link) => input.text.includes(link.url));
+  if (extractedLinks.length !== analysis.extracted_links.length) {
+    console.warn("AI analysis returned links that were not present in the source text; omitting them.");
+    analysis = { ...analysis, extracted_links: extractedLinks };
+  }
+
+  const { data: consumedQuota, error: consumeError } = await supabase.rpc("consume_ai_analysis_quota");
+  if (consumeError) {
+    console.error("AI quota consumption failed:", consumeError.code);
+    return NextResponse.json({ error: "Nepavyko patikrinti AI naudojimo limito." }, { status: 500 });
+  }
+  const consumedQuotaResult = z.object({
+    minute_count: z.number(),
+    day_count: z.number(),
+    allowed: z.boolean(),
+  }).safeParse(consumedQuota);
+  if (!consumedQuotaResult.success) {
+    return NextResponse.json({ error: "Netaisyklingas AI limito atsakas." }, { status: 500 });
+  }
+  if (!consumedQuotaResult.data.allowed) {
+    const retryAfter = consumedQuotaResult.data.minute_count >= 5 ? "60" : "86400";
+    return NextResponse.json(
+      { error: "Pasiektas AI analizės limitas. Bandykite vėliau." },
+      { status: 429, headers: { "Retry-After": retryAfter } },
+    );
   }
 
   const { data: savedAnalysis, error: saveError } = await supabase

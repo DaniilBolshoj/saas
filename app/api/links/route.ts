@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -102,5 +103,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Nepavyko išsaugoti nuorodos." }, { status: 400 });
   }
 
+  revalidatePath("/dashboard");
   return NextResponse.json({ link }, { status: 201 });
 }

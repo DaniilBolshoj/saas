@@ -2,9 +2,8 @@
 
 import { useDeferredValue, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Check, ExternalLink, FolderPlus, Link2, LogOut, Pencil, Plus, Search, Trash2, X } from "lucide-react";
-import { AiAnalysisExplorer } from "@/components/ai-analysis-explorer";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { AlertTriangle, Check, ExternalLink, FolderPlus, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { DashboardHeader } from "@/components/dashboard-header";
 
 type Category = { id: string; name: string; color: string };
 type LinkItem = {
@@ -69,7 +68,21 @@ export function DashboardWorkspace({ organizationId, organizationName, role, ini
       window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [organizationId, deferredQuery, activeCategory]);
+  }, [organizationId, deferredQuery, activeCategory, initialLinks]);
+
+  useEffect(() => {
+    if (!linkDialog && !categoryDialog) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !busy) {
+        setLinkDialog(false);
+        setCategoryDialog(false);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [linkDialog, categoryDialog, busy]);
 
   const visibleLinks = showImportant ? links.filter((link) => link.is_important) : links;
 
@@ -155,35 +168,16 @@ export function DashboardWorkspace({ organizationId, organizationName, role, ini
     }
   }
 
-  async function signOut() {
-    const supabase = createSupabaseBrowserClient();
-    await supabase.auth.signOut();
-    router.replace("/login");
-    router.refresh();
-  }
-
   return (
     <main className="min-h-screen bg-[#f7f8f5] text-[#172521]">
-      <header className="border-b border-[#dce4dd] bg-white">
-        <div className="mx-auto flex min-h-16 max-w-[1440px] items-center justify-between gap-4 px-5 sm:px-8">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="grid size-8 shrink-0 place-items-center rounded-md bg-teal-900 text-white"><Link2 size={17} /></span>
-            <span className="text-sm font-semibold">LinkOps</span><span className="hidden text-slate-300 sm:inline">/</span>
-            <span className="truncate text-sm text-slate-600">{organizationName}</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="hidden max-w-48 truncate text-xs text-slate-500 sm:block">{userEmail}</span>
-            <button type="button" title="Atsijungti" onClick={signOut} className="grid size-9 place-items-center rounded-md text-slate-600 hover:bg-slate-100"><LogOut size={17} /></button>
-          </div>
-        </div>
-      </header>
+      <DashboardHeader organizationName={organizationName} userEmail={userEmail} />
 
       <div className="mx-auto grid max-w-[1440px] gap-8 px-5 py-8 sm:px-8 lg:grid-cols-[230px_minmax(0,1fr)]">
         <aside className="space-y-8">
           <div>
             <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Projektas</p>
             <nav className="space-y-1" aria-label="Nuorodų filtrai">
-              <button type="button" onClick={() => { setActiveCategory(""); setShowImportant(false); }} className={`flex min-h-9 w-full items-center justify-between rounded-md px-3 text-left text-sm ${!activeCategory && !showImportant ? "bg-[#e6efea] font-medium text-teal-950" : "text-slate-600 hover:bg-white"}`}><span>Visos nuorodos</span><span className="text-xs">{initialLinks.length}</span></button>
+              <button type="button" onClick={() => { setActiveCategory(""); setShowImportant(false); }} className={`flex min-h-9 w-full items-center justify-between rounded-md px-3 text-left text-sm ${!activeCategory && !showImportant ? "bg-[#e6efea] font-medium text-teal-950" : "text-slate-600 hover:bg-white"}`}><span>Visos nuorodos</span><span className="text-xs">{links.length}</span></button>
               <button type="button" onClick={() => { setActiveCategory(""); setShowImportant(true); }} className={`flex min-h-9 w-full items-center rounded-md px-3 text-left text-sm ${showImportant ? "bg-[#e6efea] font-medium text-teal-950" : "text-slate-600 hover:bg-white"}`}>Svarbios</button>
             </nav>
           </div>
@@ -194,7 +188,7 @@ export function DashboardWorkspace({ organizationId, organizationName, role, ini
               {categories.length === 0 && <p className="px-3 py-2 text-xs text-slate-500">Kategorijų dar nėra.</p>}
             </nav>
           </div>
-          <div className="border-t border-slate-200 pt-4 text-xs leading-5 text-slate-500"><p>{canManageCategories ? "Komandos administratorius" : "Komandos narys"}</p><p className="mt-1">Nemokamas planas</p></div>
+          <div className="border-t border-slate-200 pt-4 text-xs leading-5 text-slate-500"><p>{canManageCategories ? "Komandos administratorius" : "Komandos narys"}</p></div>
         </aside>
 
         <div className="min-w-0 space-y-10">

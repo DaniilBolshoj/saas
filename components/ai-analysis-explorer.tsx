@@ -63,6 +63,7 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
     setTranslations({});
     setReplyDraft("");
     setSavedUrls({});
+    setCompletedActions({});
 
     try {
       const response = await fetch("/api/ai/analyze", {
@@ -207,14 +208,44 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
     }
   }
 
+  async function deleteAnalysis() {
+    if (!result) return;
+    setDeleting(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/ai/analyze", {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ analysisId: result.analysis.id }),
+      });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error ?? "Analizės ištrinti nepavyko.");
+      setResult(null);
+      setText("");
+      setConsent(false);
+      setCompletedActions({});
+      setSavedUrls({});
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Analizės ištrinti nepavyko.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   return (
-    <section className="mx-auto w-full max-w-4xl space-y-6 text-slate-900">
-      <header className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">LinkOps / Explorer</p>
-        <h1 className="text-2xl font-semibold tracking-tight">Paverskite pokalbį projekto ištekliais</h1>
-        <p className="max-w-2xl text-sm leading-6 text-slate-600">
-          Įklijuokite komandos susirašinėjimą. AI išskirs santrauką, veiksmus ir jame rastas nuorodas.
-        </p>
+    <section className="mx-auto w-full max-w-6xl space-y-8 text-slate-900">
+      <header className="space-y-4">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
+          <Sparkles aria-hidden="true" className="size-3.5" />
+          AI palaikomas Explorer
+        </span>
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">Paverskite pokalbį projekto ištekliais</h1>
+          <p className="max-w-2xl text-sm leading-6 text-slate-600">
+            Įklijuokite komandos susirašinėjimą. AI išskirs santrauką, veiksmus ir jame rastas nuorodas.
+          </p>
+        </div>
       </header>
 
       <div className="space-y-3">
@@ -260,15 +291,16 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
         </div>
       </div>
 
+      <aside className="min-w-0 space-y-5" aria-label="AI analizės rezultatai">
       {error && (
-        <p role="alert" className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+        <p role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
           {error}
         </p>
       )}
 
       {loading && (
-        <div role="status" aria-live="polite" className="flex items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
-          <span aria-hidden="true" className="size-5 animate-spin rounded-full border-2 border-teal-800/20 border-t-teal-800" />
+        <div role="status" aria-live="polite" className="flex min-h-56 flex-col items-center justify-center gap-4 rounded-3xl border border-slate-100 bg-white p-6 text-center text-sm text-slate-600 shadow-xl shadow-slate-200/50">
+          <span aria-hidden="true" className="size-8 animate-spin rounded-full border-[3px] border-emerald-800/15 border-t-emerald-700" />
           Skaitome pokalbį ir ieškome projektui svarbių išteklių...
         </div>
       )}
@@ -333,7 +365,8 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
                     <h3 className="text-sm font-medium">{item.title}</h3>
                     {item.description && <p className="mt-1 text-sm leading-5 text-slate-600">{item.description}</p>}
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             )}
           </section>
@@ -354,14 +387,6 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
                   </a>
                   {link.description && <p className="mt-2 text-sm leading-5 text-slate-600">{link.description}</p>}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => void saveLink(link)}
-                  disabled={savedUrls[link.url] || savingUrl !== null}
-                  className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-800 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {savedUrls[link.url] ? "Išsaugota" : savingUrl === link.url ? "Saugoma..." : "Išsaugoti į projektą"}
-                </button>
               </article>
             ))}
           </section>
@@ -398,6 +423,24 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
           </section>
         </div>
       )}
+      {!result && !loading && (
+        <div className="flex min-h-[28rem] flex-col items-center justify-center rounded-3xl border border-slate-100 bg-white px-6 py-10 text-center shadow-xl shadow-slate-200/50">
+          <span className="grid size-16 place-items-center rounded-2xl bg-gradient-to-br from-emerald-50 to-cyan-50 text-emerald-700 ring-1 ring-emerald-100">
+            <Sparkles aria-hidden="true" className="size-8" />
+          </span>
+          <h2 className="mt-5 text-lg font-bold tracking-tight text-slate-900">Įžvalgos pasirodys čia</h2>
+          <p className="mt-2 max-w-xs text-sm leading-6 text-slate-500">
+            Įklijuokite pokalbio tekstą, patvirtinkite sutikimą ir paleiskite analizę. Santrauka, veiksmai bei rastos nuorodos bus rodomi šiame skydelyje.
+          </p>
+          <div className="mt-6 flex flex-wrap justify-center gap-2">
+            <span className="rounded-full bg-slate-50 px-3 py-1 text-xs font-medium text-slate-500">Santrauka</span>
+            <span className="rounded-full bg-slate-50 px-3 py-1 text-xs font-medium text-slate-500">Veiksmai</span>
+            <span className="rounded-full bg-slate-50 px-3 py-1 text-xs font-medium text-slate-500">Nuorodos</span>
+          </div>
+        </div>
+      )}
+      </aside>
+      </div>
     </section>
   );
 }

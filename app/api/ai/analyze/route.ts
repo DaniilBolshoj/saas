@@ -169,7 +169,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Nepalaikomas profilio kalbos nustatymas." }, { status: 500 });
   }
 
-  const { data: quota, error: quotaError } = await supabase.rpc("consume_ai_analysis_quota");
+  const { data: quota, error: quotaError } = await supabase.rpc("check_ai_analysis_quota");
   if (quotaError) {
     console.error("AI quota preflight check failed:", quotaError.code);
     return NextResponse.json({ error: "Nepavyko patikrinti AI naudojimo limito." }, { status: 500 });
@@ -195,7 +195,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "AI paslauga nesukonfigūruota." }, { status: 500 });
   }
 
-  let analysis: z.infer<typeof analysisSchema>;
+  type GeneratedResult =
+    | { type: "reply"; replyDraft: string }
+    | { type: "translate"; analysis: z.infer<typeof contentSchema> }
+    | { type: "analyze"; analysis: z.infer<typeof analysisSchema> };
+  let generatedResult: GeneratedResult | null = null;
   try {
     const systemInstruction = input.operation === "analyze"
       ? [
@@ -284,13 +288,13 @@ export async function POST(request: Request) {
     const generated = JSON.parse(content) as unknown;
     if (input.operation === "reply") {
       const reply = z.object({ reply_draft: z.string().trim().min(1).max(3_000) }).strict().parse(generated);
-      return NextResponse.json({ replyDraft: reply.reply_draft });
-    }
-    if (input.operation === "translate") {
+      generatedResult = { type: "reply", replyDraft: reply.reply_draft };
+    } else if (input.operation === "translate") {
       const translated = contentSchema.parse(generated);
-      return NextResponse.json({ analysis: translated });
+      generatedResult = { type: "translate", analysis: translated };
+    } else {
+      generatedResult = { type: "analyze", analysis: analysisSchema.parse(generated) };
     }
-    analysis = analysisSchema.parse(generated);
   } catch (error) {
     console.error(
       "AI generation failed:",
@@ -299,10 +303,37 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "AI analizė nepavyko. Bandykite dar kartą." }, { status: 502 });
   }
 
-  const extractedLinks = analysis.extracted_links.filter((link) => input.text.includes(link.url));
-  if (extractedLinks.length !== analysis.extracted_links.length) {
-    console.warn("AI analysis returned links that were not present in the source text; omitting them.");
-    analysis = { ...analysis, extracted_links: extractedLinks };
+  const completedResult = generatedResult;
+  if (!completedResult) {
+    console.error("AI generation completed without a result.");
+    return NextResponse.json({ error: "AI analizė nepavyko. Bandykite dar kartą." }, { status: 502 });
+  }
+
+  let verifiedResult: GeneratedResult;
+  if (completedResult.type === "translate") {
+    const extractedLinks = completedResult.analysis.extracted_links.filter((link) => input.text.includes(link.url));
+    if (extractedLinks.length !== completedResult.analysis.extracted_links.length) {
+      console.warn("AI analysis returned links that were not present in the source text; omitting them.");
+      verifiedResult = {
+        type: "translate",
+        analysis: { ...completedResult.analysis, extracted_links: extractedLinks },
+      };
+    } else {
+      verifiedResult = completedResult;
+    }
+  } else if (completedResult.type === "analyze") {
+    const extractedLinks = completedResult.analysis.extracted_links.filter((link) => input.text.includes(link.url));
+    if (extractedLinks.length !== completedResult.analysis.extracted_links.length) {
+      console.warn("AI analysis returned links that were not present in the source text; omitting them.");
+      verifiedResult = {
+        type: "analyze",
+        analysis: { ...completedResult.analysis, extracted_links: extractedLinks },
+      };
+    } else {
+      verifiedResult = completedResult;
+    }
+  } else {
+    verifiedResult = completedResult;
   }
 
   const { data: consumedQuota, error: consumeError } = await supabase.rpc("consume_ai_analysis_quota");
@@ -326,6 +357,14 @@ export async function POST(request: Request) {
     );
   }
 
+  if (verifiedResult.type === "reply") {
+    return NextResponse.json({ replyDraft: verifiedResult.replyDraft });
+  }
+  if (verifiedResult.type === "translate") {
+    return NextResponse.json({ analysis: verifiedResult.analysis });
+  }
+
+  const analysis = verifiedResult.analysis;
   const { data: savedAnalysis, error: saveError } = await supabase
     .from("ai_analyses")
     .insert({

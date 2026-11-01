@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowUpRight, CheckCircle2, FileText, Link2, LockKeyhole, Sparkles, Trash2 } from "lucide-react";
 import { aiLanguages, getAiLanguageName } from "@/lib/ai-languages";
 
 type ActionItem = {
@@ -54,6 +55,8 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
   const [replyIntent, setReplyIntent] = useState("");
   const [replyDraft, setReplyDraft] = useState("");
   const [replyLoading, setReplyLoading] = useState(false);
+  const [completedActions, setCompletedActions] = useState<Record<number, boolean>>({});
+  const [deleting, setDeleting] = useState(false);
 
   async function analyze() {
     setLoading(true);
@@ -75,7 +78,8 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
       if (!response.ok) throw new Error(payload.error ?? "Analizė nepavyko.");
       setResult(payload);
       const baseAnalysis = {
-        ...payload.analysis,
+        summary: payload.analysis.summary,
+        action_items: payload.analysis.action_items,
         extracted_links: payload.extracted_links,
       };
       setDisplayedAnalysis(baseAnalysis);
@@ -114,7 +118,8 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
     setResultLanguage(language);
 
     const baseAnalysis = {
-      ...result.analysis,
+      summary: result.analysis.summary,
+      action_items: result.analysis.action_items,
       extracted_links: result.extracted_links,
     };
     if (language === preferredLanguage) {
@@ -222,8 +227,12 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
       const payload = await response.json() as { error?: string };
       if (!response.ok) throw new Error(payload.error ?? "Analizės ištrinti nepavyko.");
       setResult(null);
+      setDisplayedAnalysis(null);
+      setTranslations({});
       setText("");
       setConsent(false);
+      setReplyIntent("");
+      setReplyDraft("");
       setCompletedActions({});
       setSavedUrls({});
     } catch (caught) {
@@ -275,6 +284,7 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
           <div className="space-y-1">
             <span className="block text-xs text-slate-500">{text.length.toLocaleString()} / 12 000</span>
             <label className="flex max-w-2xl items-start gap-2 text-xs leading-5 text-slate-600">
+              <LockKeyhole aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-slate-400" />
               <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-0.5 size-4 shrink-0 accent-teal-900" />
               Sutinku, kad tekstas ir atsakymo gairės būtų siunčiami Google Gemini analizei / vertimui, o analizė saugoma LinkOps iki 90 dienų. Juose gali būti asmens ar konfidencialių duomenų.
             </label>
@@ -308,25 +318,10 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
       {result && displayedAnalysis && (
         <div className="space-y-5" aria-live="polite">
           <div className="flex justify-end">
-            <button type="button" onClick={async () => {
-              try {
-                const response = await fetch("/api/ai/analyze", {
-                  method: "DELETE",
-                  headers: { "content-type": "application/json" },
-                  body: JSON.stringify({ analysisId: result.analysis.id }),
-                });
-                if (!response.ok) throw new Error("Analizės ištrinti nepavyko.");
-                setResult(null);
-                setDisplayedAnalysis(null);
-                setTranslations({});
-                setText("");
-                setConsent(false);
-                setReplyIntent("");
-                setReplyDraft("");
-              } catch (caught) {
-                setError(caught instanceof Error ? caught.message : "Analizės ištrinti nepavyko.");
-              }
-            }} className="text-xs font-medium text-slate-500 underline underline-offset-4 hover:text-rose-700">Ištrinti šią analizę</button>
+            <button type="button" onClick={() => void deleteAnalysis()} disabled={deleting} className="inline-flex min-h-9 items-center gap-2 rounded-lg px-3 text-sm font-medium text-rose-600 transition hover:bg-rose-50 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-50">
+              <Trash2 aria-hidden="true" className="size-4" />
+              {deleting ? "Trinama..." : "Ištrinti šią analizę"}
+            </button>
           </div>
           <div className="flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-white px-4 py-3">
             <label htmlFor="result-language" className="text-sm font-medium">Analizės kalba</label>
@@ -350,21 +345,39 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
             <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">{text}</p>
           </details>
           <article className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-base font-semibold">Santrauka</h2>
+            <h2 className="flex items-center gap-2 text-base font-semibold"><FileText aria-hidden="true" className="size-4 text-teal-700" />Santrauka</h2>
             <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{displayedAnalysis.summary}</p>
           </article>
 
           <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-base font-semibold">Veiksmai <span className="font-normal text-slate-500">({displayedAnalysis.action_items.length})</span></h2>
+            <h2 className="flex items-center gap-2 text-base font-semibold">
+              <CheckCircle2 aria-hidden="true" className="size-4 text-emerald-600" />
+              Veiksmai
+              <span className="font-normal text-slate-500">
+                ({Object.values(completedActions).filter(Boolean).length} iš {displayedAnalysis.action_items.length} atlikta)
+              </span>
+            </h2>
             {displayedAnalysis.action_items.length === 0 ? (
               <p className="mt-3 text-sm text-slate-500">Veiksmų nerasta.</p>
             ) : (
               <ul className="mt-3 divide-y divide-slate-100">
-                {displayedAnalysis.action_items.map((item, index) => (
-                  <li key={`${item.title}-${index}`} className="py-3 first:pt-0 last:pb-0">
-                    <h3 className="text-sm font-medium">{item.title}</h3>
-                    {item.description && <p className="mt-1 text-sm leading-5 text-slate-600">{item.description}</p>}
-                  </li>
+                {displayedAnalysis.action_items.map((item, index) => {
+                  const isCompleted = completedActions[index] ?? false;
+                  return (
+                    <li key={`${item.title}-${index}`} className="py-3 first:pt-0 last:pb-0">
+                      <label className="flex cursor-pointer items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={isCompleted}
+                          onChange={(event) => setCompletedActions((current) => ({ ...current, [index]: event.target.checked }))}
+                          className="mt-0.5 size-4 shrink-0 accent-emerald-600"
+                        />
+                        <span className="min-w-0">
+                          <span className={`block text-sm font-medium ${isCompleted ? "text-slate-500 line-through" : "text-slate-900"}`}>{item.title}</span>
+                          {item.description && <span className="mt-1 block text-sm leading-5 text-slate-600">{item.description}</span>}
+                        </span>
+                      </label>
+                    </li>
                   );
                 })}
               </ul>
@@ -373,7 +386,7 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
 
           <section className="space-y-3">
             <div className="flex items-baseline justify-between gap-4">
-              <h2 className="text-base font-semibold">Rastos nuorodos</h2>
+              <h2 className="flex items-center gap-2 text-base font-semibold"><Link2 aria-hidden="true" className="size-4 text-teal-700" />Rastos nuorodos</h2>
               <span className="text-xs text-slate-500">{displayedAnalysis.extracted_links.length}</span>
             </div>
             {displayedAnalysis.extracted_links.length === 0 ? (
@@ -382,10 +395,21 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
               <article key={link.url} className="flex flex-col gap-4 rounded-md border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <h3 className="truncate text-sm font-semibold">{link.title}</h3>
-                  <a href={link.url} target="_blank" rel="noreferrer" className="mt-1 block truncate text-xs text-teal-800 underline decoration-teal-800/30 underline-offset-2">
-                    {link.url}
-                  </a>
+                  <p className="mt-1 truncate text-xs text-slate-500">{link.url}</p>
                   {link.description && <p className="mt-2 text-sm leading-5 text-slate-600">{link.description}</p>}
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <a href={link.url} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg bg-slate-100 px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-200">
+                      Atidaryti <ArrowUpRight aria-hidden="true" className="size-3.5" />
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => void saveLink(link)}
+                      disabled={savedUrls[link.url] || savingUrl !== null}
+                      className="inline-flex min-h-9 items-center justify-center rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50/50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {savedUrls[link.url] ? "Išsaugota" : savingUrl === link.url ? "Saugoma..." : "Išsaugoti į projektą"}
+                    </button>
+                  </div>
                 </div>
               </article>
             ))}
@@ -440,7 +464,6 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
         </div>
       )}
       </aside>
-      </div>
     </section>
   );
 }

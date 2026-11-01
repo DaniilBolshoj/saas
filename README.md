@@ -21,13 +21,12 @@ Užpildykite `.env.local` reikšmes. `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KE
 
 ## Supabase nustatymas
 
-1. Supabase SQL Editor'yje iš eilės paleiskite `supabase/migrations/20261011000000_core.sql`, `supabase/migrations/20261012000000_ai_analyses.sql` ir `supabase/migrations/20261023000000_preferred_language.sql`.
+1. Naujam Supabase projektui SQL Editor'yje iš eilės paleiskite visas migracijas iš `supabase/migrations/`: `20261011000000_core.sql`, `20261012000000_ai_analyses.sql`, `20261017000000_projects_clients_tasks.sql`, `20261023000000_preferred_language.sql` ir `20261101000000_ai_quota_successful_requests.sql`.
 2. Supabase Auth → Providers įjunkite Google OAuth ir užregistruokite Google OAuth client ID/secret.
 3. Supabase Auth URL Configuration pridėkite `http://localhost:3000/auth/callback` ir produkcinį `https://<domenas>/auth/callback` į Redirect URLs; Site URL nustatykite aplikacijos adresu.
 4. Į `.env.local` įrašykite Supabase Project URL, anon/public key ir service role key. Service role naudojamas tik serverio cron maršrute.
 
-Šios migracijos yra pradinis setup naujai DB. Prieš paleisdami jas prieš jau egzistuojančią schemą, palyginkite lenteles ir policies; nekartokite `create table` migracijų virš jau esančių lentelių.
-Jei pirmosios dvi migracijos jau paleistos veikiančioje DB, paleiskite tik `20261023000000_preferred_language.sql`.
+Šios migracijos yra pradinis setup naujai DB. Prieš paleisdami jas prieš jau egzistuojančią schemą, palyginkite lenteles ir policies; nekartokite `create table` migracijų virš jau esančių lentelių. Migracijos po bazinės schemos turi būti paleidžiamos ta pačia laiko žymų tvarka.
 
 ## Aplinkos kintamieji
 
@@ -45,14 +44,14 @@ Vercel projekte sukurkite tuos pačius environment variables. GitHub repository 
 
 - `GET /` produkto pristatymas; `/login` Google OAuth; `/auth/callback` keičia OAuth kodą į sesiją.
 - `/onboarding` sukuria organizaciją ir pirmąjį `owner` per transakcinę RPC funkciją.
-- `/dashboard` pateikia komandos nuorodas, kategorijas, fuzzy paiešką ir AI Explorer su naudotojo kalbos nustatymu.
+- `/dashboard` pateikia komandos nuorodas, kategorijas ir fuzzy paiešką; `/dashboard/ai` – AI Explorer su naudotojo kalbos nustatymu. Projektų, klientų ir užduočių lentelės paruoštos migracijoje, tačiau jų UI/API dar neįgyvendinti.
 - `POST /api/ai/analyze` reikalauja aiškaus sutikimo, analizuoja tekstą pasirinkta kalba, leidžia perjungti santraukos kalbą ir sugeneruoti kliento kalbos atsakymo juodraštį.
 - `DELETE /api/ai/analyze` leidžia autoriui ištrinti analizę ir originalų tekstą.
 - `GET/POST /api/links`, `PATCH/DELETE /api/links/[id]` valdo nuorodas; `GET/POST /api/categories` valdo kategorijas.
 - `GET /api/cron/check-links` tikrina seniausius URL (HEAD, tada 403/405/501 atveju GET su Range).
 - `GET /api/cron/cleanup` kasdien ištrina AI analizes, senesnes nei 90 dienų, ir nebereikalingas kvotas.
 
-AI tekstas siunčiamas Google Gemini API ir saugomas Supabase iki 90 dienų; sąsajoje prašomas sutikimas prieš siuntimą. Naudotojas gali analizę ištrinti iškart. Numatytoji analizės kalba nustatoma profilyje; atskirai galima pasirinkti užsakovo kalbą arba kitą palaikomą kalbą. Atsakymo juodraštis generuojamas užsakovo kalba ir nėra automatiškai siunčiamas. Prieš realų klientų naudojimą pridėkite privatumo politiką, duomenų tvarkymo sutartis, eksportavimo/ištrynimo procesą ir patikrinkite Google Gemini API duomenų tvarkymo sąlygas. API kainodara ir limitai priklauso nuo Google AI Studio projekto; kvota riboja vieną naudotoją iki 5 AI užklausų per minutę ir 50 per parą.
+AI tekstas siunčiamas Google Gemini API ir saugomas Supabase iki 90 dienų; sąsajoje prašomas sutikimas prieš siuntimą. Naudotojas gali analizę ištrinti iškart. Numatytoji analizės kalba nustatoma profilyje; atskirai galima pasirinkti užsakovo kalbą arba kitą palaikomą kalbą. Atsakymo juodraštis generuojamas užsakovo kalba ir nėra automatiškai siunčiamas. AI kvota įskaitoma tik po sėkmingo modelio atsakymo; prieš realų klientų naudojimą pridėkite privatumo politiką, duomenų tvarkymo sutartis, eksportavimo/ištrynimo procesą ir patikrinkite Google Gemini API duomenų tvarkymo sąlygas. API kainodara ir limitai priklauso nuo Google AI Studio projekto; kvota riboja vieną naudotoją iki 5 AI užklausų per minutę ir 50 per parą.
 
 ## Vykdymo laikas ir billing
 

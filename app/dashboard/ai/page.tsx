@@ -18,18 +18,26 @@ async function AiExplorerContent() {
   if (membershipError) throw new Error("Nepavyko gauti komandos narystės.");
   if (!memberships?.length) redirect("/onboarding");
 
-  const { data: organization, error: organizationError } = await supabase
+  const [{ data: organization, error: organizationError }, { data: profile, error: profileError }] = await Promise.all([
+    supabase
     .from("organizations")
     .select("id, name")
     .eq("id", memberships[0].organization_id)
-    .single();
+    .single(),
+    supabase
+      .from("profiles")
+      .select("preferred_language")
+      .eq("id", user.id)
+      .maybeSingle(),
+  ]);
   if (organizationError || !organization) throw new Error("Nepavyko įkelti komandos.");
+  if (profileError) throw new Error("Nepavyko įkelti kalbos nustatymo.");
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
       <DashboardHeader organizationName={organization.name} userEmail={user.email ?? ""} />
       <div className="mx-auto max-w-[1440px] px-5 py-8 sm:px-8 lg:py-10">
-        <AiAnalysisExplorer organizationId={organization.id} />
+        <AiAnalysisExplorer organizationId={organization.id} preferredLanguage={profile?.preferred_language ?? "lt"} />
       </div>
     </main>
   );

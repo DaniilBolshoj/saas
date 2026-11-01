@@ -253,6 +253,13 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
     }
   }
 
+  const prioritizedRisks = displayedAnalysis
+    ? [...displayedAnalysis.risks].sort((left, right) => {
+      const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+      return severityOrder[left.severity] - severityOrder[right.severity];
+    })
+    : [];
+
   return (
     <section className="mx-auto w-full max-w-6xl space-y-8 text-slate-900">
       <header className="space-y-4">
@@ -364,6 +371,32 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
             <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{displayedAnalysis.summary}</p>
           </article>
 
+          <section className={`rounded-md border p-5 shadow-sm ${displayedAnalysis.recommendation.decision === "decline" ? "border-rose-200 bg-rose-50" : displayedAnalysis.recommendation.decision === "negotiate" ? "border-amber-200 bg-amber-50" : "border-emerald-200 bg-emerald-50"}`}>
+            <h2 className="text-base font-semibold">Rekomendacija: {displayedAnalysis.recommendation.decision === "take" ? "Imtis" : displayedAnalysis.recommendation.decision === "negotiate" ? "Derėtis prieš sutinkant" : "Atsisakyti"}</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-800">{displayedAnalysis.recommendation.rationale}</p>
+            <div className="mt-4 border-t border-current/10 pt-3">
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-rose-950">
+                <AlertTriangle aria-hidden="true" className="size-4 text-rose-700" />
+                Svarbiausios rizikos
+              </h3>
+              {displayedAnalysis.risks.length === 0 ? (
+                <p className="mt-2 text-sm text-slate-600">Aiškių rizikų tekste nenustatyta.</p>
+              ) : (
+                <ul className="mt-2 space-y-3">
+                  {prioritizedRisks.slice(0, 3).map((risk, index) => (
+                    <li key={`${risk.risk}-${index}`}>
+                      <p className="text-sm font-medium text-slate-900">{risk.risk}</p>
+                      <p className="mt-1 text-xs font-bold uppercase text-rose-800">
+                        {risk.severity === "critical" ? "Kritinė" : risk.severity === "high" ? "Aukšta" : risk.severity === "medium" ? "Vidutinė" : "Žema"}
+                      </p>
+                      {risk.evidence && <p className="mt-1 text-xs text-slate-600">„{risk.evidence}“</p>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </section>
+
           <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="flex items-center gap-2 text-base font-semibold">
               <CheckCircle2 aria-hidden="true" className="size-4 text-emerald-600" />
@@ -435,15 +468,13 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
             )}
           </section>
 
-          <section className="rounded-md border border-rose-200 bg-rose-50/50 p-5 shadow-sm">
-            <h2 className="flex items-center gap-2 text-base font-semibold text-rose-950">
-              <AlertTriangle aria-hidden="true" className="size-4 text-rose-700" />Rizikos
-            </h2>
-            {displayedAnalysis.risks.length === 0 ? (
-              <p className="mt-3 text-sm text-slate-600">Aiškių rizikų tekste nenustatyta.</p>
-            ) : (
+          {prioritizedRisks.length > 3 && (
+            <section className="rounded-md border border-rose-200 bg-rose-50/50 p-5 shadow-sm">
+              <h2 className="flex items-center gap-2 text-base font-semibold text-rose-950">
+                <AlertTriangle aria-hidden="true" className="size-4 text-rose-700" />Kitos rizikos
+              </h2>
               <ul className="mt-3 space-y-3">
-                {displayedAnalysis.risks.map((risk, index) => (
+                {prioritizedRisks.slice(3).map((risk, index) => (
                   <li key={`${risk.risk}-${index}`} className="border-t border-rose-100 pt-3 first:border-0 first:pt-0">
                     <p className="text-sm font-medium text-slate-900">{risk.risk}</p>
                     <p className="mt-1 text-xs font-bold uppercase text-rose-800">
@@ -453,8 +484,8 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
                   </li>
                 ))}
               </ul>
-            )}
-          </section>
+            </section>
+          )}
 
           <section className="rounded-md border border-amber-200 bg-amber-50/50 p-5 shadow-sm">
             <h2 className="flex items-center gap-2 text-base font-semibold"><CircleHelp aria-hidden="true" className="size-4 text-amber-700" />Klausimai klientui</h2>
@@ -467,19 +498,13 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
             )}
           </section>
 
-          <section className={`rounded-md border p-5 shadow-sm ${displayedAnalysis.recommendation.decision === "decline" ? "border-rose-200 bg-rose-50" : displayedAnalysis.recommendation.decision === "negotiate" ? "border-amber-200 bg-amber-50" : "border-emerald-200 bg-emerald-50"}`}>
-            <h2 className="text-base font-semibold">Rekomendacija: {displayedAnalysis.recommendation.decision === "take" ? "Imtis" : displayedAnalysis.recommendation.decision === "negotiate" ? "Derėtis prieš sutinkant" : "Atsisakyti"}</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-800">{displayedAnalysis.recommendation.rationale}</p>
-          </section>
-
-          <section className="space-y-3">
-            <div className="flex items-baseline justify-between gap-4">
-              <h2 className="flex items-center gap-2 text-base font-semibold"><Link2 aria-hidden="true" className="size-4 text-teal-700" />Rastos nuorodos</h2>
-              <span className="text-xs text-slate-500">{displayedAnalysis.extracted_links.length}</span>
-            </div>
-            {displayedAnalysis.extracted_links.length === 0 ? (
-              <p className="rounded-md border border-dashed border-slate-300 px-4 py-6 text-center text-sm text-slate-500">Nuorodų pokalbyje nerasta.</p>
-            ) : displayedAnalysis.extracted_links.map((link) => (
+          {displayedAnalysis.extracted_links.length > 0 && (
+            <section className="space-y-3">
+              <div className="flex items-baseline justify-between gap-4">
+                <h2 className="flex items-center gap-2 text-base font-semibold"><Link2 aria-hidden="true" className="size-4 text-teal-700" />Rastos nuorodos</h2>
+                <span className="text-xs text-slate-500">{displayedAnalysis.extracted_links.length}</span>
+              </div>
+              {displayedAnalysis.extracted_links.map((link) => (
               <article key={link.url} className="flex flex-col gap-4 rounded-md border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <h3 className="truncate text-sm font-semibold">{link.title}</h3>
@@ -500,8 +525,9 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
                   </div>
                 </div>
               </article>
-            ))}
-          </section>
+              ))}
+            </section>
+          )}
 
           <section className="space-y-3 rounded-md border border-slate-200 bg-white p-5 shadow-sm">
             <div>

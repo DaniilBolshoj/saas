@@ -64,6 +64,7 @@ API route eksportai nenaudoja `runtime` ar `maxDuration`, nes projekte įjungtas
 ## Patikros
 
 ```bash
+npm test
 npm run lint
 npm run build
 ```

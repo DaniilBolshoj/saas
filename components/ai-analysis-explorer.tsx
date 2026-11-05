@@ -66,6 +66,9 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
   const [replyLoading, setReplyLoading] = useState(false);
   const [completedActions, setCompletedActions] = useState<Record<number, boolean>>({});
   const [deleting, setDeleting] = useState(false);
+  const replyOutputLanguage = result?.sourceLanguage && result.sourceLanguage !== "other"
+    ? getAiLanguageNameInLithuanian(result.sourceLanguage) ?? "kliento"
+    : "kliento";
 
   async function analyze() {
     setLoading(true);
@@ -533,7 +536,7 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
             <div>
               <h2 className="text-base font-semibold">Atsakymo užsakovui juodraštis</h2>
               <p className="mt-1 text-sm leading-5 text-slate-600">
-                Parašykite atsakymo esmę {getAiLanguageNameInLithuanian(preferredLanguage)} kalba. AI paruoš juodraštį kliento kalba; jis nebus automatiškai išsiųstas.
+                Parašykite atsakymo esmę lietuvių kalba; AI paruoš juodraštį {replyOutputLanguage} kalba. Jis nebus automatiškai išsiųstas.
               </p>
             </div>
             <textarea

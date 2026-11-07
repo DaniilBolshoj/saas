@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Link2, LogOut, Sparkles } from "lucide-react";
+import { ClipboardList, Link2, LogOut, Settings, Sparkles } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type Props = {
@@ -49,7 +49,23 @@ export function DashboardHeader({ organizationName, userEmail }: Props) {
               className={`inline-flex min-h-9 items-center gap-2 rounded-lg px-3 text-sm font-medium transition ${pathname === "/dashboard/ai" ? "bg-emerald-50 text-emerald-800" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}
             >
               <Sparkles aria-hidden="true" className="size-4" />
-              <span className="hidden sm:inline">AI Explorer</span>
+              <span className="hidden sm:inline">AI analizė</span>
+            </Link>
+            <Link
+              href="/dashboard/orders"
+              aria-current={pathname.startsWith("/dashboard/orders") ? "page" : undefined}
+              className={`inline-flex min-h-9 items-center gap-2 rounded-lg px-3 text-sm font-medium transition ${pathname.startsWith("/dashboard/orders") ? "bg-slate-100 text-slate-950" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}
+            >
+              <ClipboardList aria-hidden="true" className="size-4" />
+              <span className="hidden sm:inline">Užsakymai</span>
+            </Link>
+            <Link
+              href="/dashboard/settings"
+              aria-current={pathname === "/dashboard/settings" ? "page" : undefined}
+              className={`inline-flex min-h-9 items-center gap-2 rounded-lg px-3 text-sm font-medium transition ${pathname === "/dashboard/settings" ? "bg-slate-100 text-slate-950" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}
+            >
+              <Settings aria-hidden="true" className="size-4" />
+              <span className="hidden sm:inline">Nustatymai</span>
             </Link>
           </nav>
 

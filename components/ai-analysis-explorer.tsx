@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ArrowUpRight, CheckCircle2, CircleHelp, FileText, Link2, LockKeyhole, Sparkles, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, CheckCircle2, CircleHelp, FileText, Link2, LockKeyhole, Save, Sparkles, Trash2 } from "lucide-react";
 import { aiLanguages, getAiLanguageName, getAiLanguageNameInLithuanian } from "@/lib/ai-languages";
 
 type ActionItem = {
@@ -46,12 +47,17 @@ type Props = {
   preferredLanguage: string;
 };
 
+function suggestOrderName(summary: string) {
+  const firstSentence = summary.split(/(?<=[.!?])\s/u)[0]?.trim() ?? "";
+  const name = firstSentence || summary.trim();
+  return name.length > 80 ? `${name.slice(0, 77).trimEnd()}...` : name;
+}
+
 export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialPreferredLanguage }: Props) {
   const router = useRouter();
   const [text, setText] = useState("");
   const [consent, setConsent] = useState(false);
-  const [preferredLanguage, setPreferredLanguage] = useState(initialPreferredLanguage);
-  const [savingPreferredLanguage, setSavingPreferredLanguage] = useState(false);
+  const preferredLanguage = initialPreferredLanguage;
   const [result, setResult] = useState<AnalysisResponse | null>(null);
   const [displayedAnalysis, setDisplayedAnalysis] = useState<AnalysisContent | null>(null);
   const [resultLanguage, setResultLanguage] = useState(initialPreferredLanguage);
@@ -66,6 +72,10 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
   const [replyLoading, setReplyLoading] = useState(false);
   const [completedActions, setCompletedActions] = useState<Record<number, boolean>>({});
   const [deleting, setDeleting] = useState(false);
+  const [orderName, setOrderName] = useState("");
+  const [orderClient, setOrderClient] = useState("");
+  const [savingOrder, setSavingOrder] = useState(false);
+  const [savedOrderId, setSavedOrderId] = useState<string | null>(null);
   const replyOutputLanguage = result?.sourceLanguage && result.sourceLanguage !== "other"
     ? getAiLanguageNameInLithuanian(result.sourceLanguage) ?? "kliento"
     : "kliento";
@@ -79,6 +89,8 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
     setReplyDraft("");
     setSavedUrls({});
     setCompletedActions({});
+    setSavedOrderId(null);
+    setOrderClient("");
 
     try {
       const response = await fetch("/api/ai/analyze", {
@@ -97,31 +109,11 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
       };
       setDisplayedAnalysis(baseAnalysis);
       setResultLanguage(preferredLanguage);
+      setOrderName(suggestOrderName(baseAnalysis.summary));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Įvyko netikėta klaida.");
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function updatePreferredLanguage(language: string) {
-    const previousLanguage = preferredLanguage;
-    setPreferredLanguage(language);
-    setSavingPreferredLanguage(true);
-    setError(null);
-    try {
-      const response = await fetch("/api/profile", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ preferredLanguage: language }),
-      });
-      const payload = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(payload.error ?? "Kalbos nustatymo išsaugoti nepavyko.");
-    } catch (caught) {
-      setPreferredLanguage(previousLanguage);
-      setError(caught instanceof Error ? caught.message : "Kalbos nustatymo išsaugoti nepavyko.");
-    } finally {
-      setSavingPreferredLanguage(false);
     }
   }
 
@@ -227,6 +219,36 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
     }
   }
 
+  async function saveOrder() {
+    if (!result || !displayedAnalysis || !orderName.trim()) return;
+    setSavingOrder(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          organizationId,
+          analysisId: result.analysis.id,
+          name: orderName,
+          clientName: orderClient,
+          language: resultLanguage === "source"
+            ? (getAiLanguageName(result.sourceLanguage) ? result.sourceLanguage : preferredLanguage)
+            : resultLanguage,
+          analysis: displayedAnalysis,
+          completedActions: Object.entries(completedActions).filter(([, done]) => done).map(([index]) => Number(index)),
+        }),
+      });
+      const payload = await response.json() as { projectId?: string; error?: string };
+      if (!response.ok || !payload.projectId) throw new Error(payload.error ?? "Nepavyko išsaugoti užsakymo.");
+      setSavedOrderId(payload.projectId);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Nepavyko išsaugoti užsakymo.");
+    } finally {
+      setSavingOrder(false);
+    }
+  }
+
   async function deleteAnalysis() {
     if (!result) return;
     setDeleting(true);
@@ -249,6 +271,9 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
       setReplyDraft("");
       setCompletedActions({});
       setSavedUrls({});
+      setSavedOrderId(null);
+      setOrderName("");
+      setOrderClient("");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Analizės ištrinti nepavyko.");
     } finally {
@@ -279,20 +304,11 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
       </header>
 
       <div className="space-y-5">
-        <div className="space-y-2">
-        <label htmlFor="preferred-language" className="block text-sm font-medium">Numatytoji AI kalba</label>
-        <select
-          id="preferred-language"
-          value={preferredLanguage}
-          onChange={(event) => void updatePreferredLanguage(event.target.value)}
-          disabled={savingPreferredLanguage}
-          className="min-h-10 rounded-md border border-slate-300 bg-white px-3 text-sm shadow-sm outline-none focus:border-teal-700 focus:ring-2 focus:ring-teal-700/20"
-        >
-          {aiLanguages.map((language) => (
-            <option key={language.code} value={language.code}>{language.name}</option>
-          ))}
-        </select>
-        </div>
+        <p className="text-sm text-slate-600">
+          Analizės kalba: <strong className="font-semibold text-slate-900">{getAiLanguageName(preferredLanguage)}</strong>
+          {" · "}
+          <Link href="/dashboard/settings" className="font-medium text-teal-800 underline underline-offset-4">keisti nustatymuose</Link>
+        </p>
         <div className="space-y-2">
         <label htmlFor="conversation" className="block text-sm font-medium">Kliento žinutė ar projekto aprašymas</label>
         <textarea
@@ -311,13 +327,13 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
             <label className="flex max-w-2xl items-start gap-2 text-xs leading-5 text-slate-600">
               <LockKeyhole aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-slate-400" />
               <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-0.5 size-4 shrink-0 accent-teal-900" />
-              Sutinku, kad tekstas ir atsakymo gairės būtų siunčiami Google Gemini analizei / vertimui, o analizė saugoma LinkOps iki 90 dienų. Juose gali būti asmens ar konfidencialių duomenų.
+              Sutinku, kad tekstas ir atsakymo gairės būtų siunčiami Google Gemini analizei / vertimui, o analizė saugoma LinkOps iki 90 dienų, nebent ją išsaugosite kaip užsakymą (tada ji saugoma, kol ją ištrinsite). Juose gali būti asmens ar konfidencialių duomenų.
             </label>
           </div>
           <button
             type="button"
             onClick={analyze}
-            disabled={loading || savingPreferredLanguage || text.trim().length === 0 || !consent}
+            disabled={loading || text.trim().length === 0 || !consent}
             className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-teal-800 px-4 text-sm font-medium text-white transition hover:bg-teal-900 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading && <span aria-hidden="true" className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
@@ -342,12 +358,12 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
 
       {result && displayedAnalysis && (
         <div className="space-y-5" aria-live="polite">
-          <div className="flex justify-end">
+          {!savedOrderId && <div className="flex justify-end">
             <button type="button" onClick={() => void deleteAnalysis()} disabled={deleting} className="inline-flex min-h-9 items-center gap-2 rounded-lg px-3 text-sm font-medium text-rose-600 transition hover:bg-rose-50 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-50">
               <Trash2 aria-hidden="true" className="size-4" />
               {deleting ? "Trinama..." : "Ištrinti šią analizę"}
             </button>
-          </div>
+          </div>}
           <div className="flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-white px-4 py-3">
             <label htmlFor="result-language" className="text-sm font-medium">Analizės kalba</label>
             <select
@@ -559,6 +575,43 @@ export function AiAnalysisExplorer({ organizationId, preferredLanguage: initialP
               <div className="rounded-md bg-slate-50 p-3">
                 <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Peržiūrėkite prieš siųsdami</p>
                 <p className="whitespace-pre-wrap text-sm leading-6 text-slate-800">{replyDraft}</p>
+              </div>
+            )}
+          </section>
+
+          <section className="space-y-3 rounded-md border border-teal-200 bg-teal-50/60 p-5 shadow-sm">
+            <div>
+              <h2 className="text-base font-semibold">Išsaugoti užsakymą</h2>
+              <p className="mt-1 text-sm leading-5 text-slate-600">
+                Analizė ir veiksmai bus išsaugoti jūsų užsakymų archyve, o veiksmus galėsite žymėti kaip atliktus. Neišsaugota analizė ištrinama po 90 dienų.
+              </p>
+            </div>
+            {savedOrderId ? (
+              <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-emerald-200 bg-white px-4 py-3 text-sm">
+                <span className="font-medium text-emerald-800">Užsakymas išsaugotas.</span>
+                <Link href={`/dashboard/orders/${savedOrderId}`} className="inline-flex items-center gap-1.5 font-semibold text-teal-800 underline underline-offset-4">
+                  Atidaryti užsakymą <ArrowUpRight aria-hidden="true" className="size-3.5" />
+                </Link>
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto] sm:items-end">
+                <label className="block space-y-1 text-sm font-medium">
+                  Pavadinimas
+                  <input value={orderName} onChange={(event) => setOrderName(event.target.value)} maxLength={160} className="min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-normal outline-none focus:border-teal-700 focus:ring-2 focus:ring-teal-700/20" />
+                </label>
+                <label className="block space-y-1 text-sm font-medium">
+                  Klientas <span className="font-normal text-slate-500">(nebūtina)</span>
+                  <input value={orderClient} onChange={(event) => setOrderClient(event.target.value)} maxLength={160} className="min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-normal outline-none focus:border-teal-700 focus:ring-2 focus:ring-teal-700/20" />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => void saveOrder()}
+                  disabled={savingOrder || !orderName.trim()}
+                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-teal-800 px-4 text-sm font-medium text-white hover:bg-teal-900 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Save aria-hidden="true" className="size-4" />
+                  {savingOrder ? "Saugoma..." : "Išsaugoti užsakymą"}
+                </button>
               </div>
             )}
           </section>

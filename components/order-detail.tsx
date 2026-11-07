@@ -9,7 +9,7 @@ import {
   orderStatuses,
   type AnalysisSnapshot,
   type OrderStatus,
-} from "@/lib/order-schemas";
+} from "../lib/order-schemas";
 
 type Task = { id: string; title: string; description: string; timing: string; completed: boolean };
 
@@ -37,7 +37,7 @@ export function OrderDetail({ project, initialTasks, snapshot, originalText }: P
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const doneCount = tasks.filter((task) => task.completed).length;
-  const risks = snapshot ? [...snapshot.risks].sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]) : [];
+  const risks = snapshot ? [...snapshot.risks].sort((a, b) => severityOrder[a.severity as keyof typeof severityOrder] - severityOrder[b.severity as keyof typeof severityOrder]) : [];
 
   async function toggleTask(task: Task) {
     const next = !task.completed;

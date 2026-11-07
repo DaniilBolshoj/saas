@@ -3,7 +3,6 @@
 import { useDeferredValue, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Check, ExternalLink, FolderPlus, Pencil, Plus, Search, Trash2, X } from "lucide-react";
-import { DashboardHeader } from "@/components/dashboard-header";
 
 type Category = { id: string; name: string; color: string };
 type LinkItem = {
@@ -28,6 +27,17 @@ type Props = {
   initialLinks: LinkItem[];
   userEmail: string;
 };
+
+function DashboardHeader({ organizationName, userEmail }: Pick<Props, "organizationName" | "userEmail">) {
+  return (
+    <header className="border-b border-slate-200 bg-white">
+      <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-4 px-5 py-4 sm:px-8">
+        <p className="font-semibold text-teal-950">{organizationName}</p>
+        <p className="truncate text-sm text-slate-600">{userEmail}</p>
+      </div>
+    </header>
+  );
+}
 
 const emptyDraft: LinkDraft = { title: "", url: "", description: "", categoryId: "", isImportant: false };
 

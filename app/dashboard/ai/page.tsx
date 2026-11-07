@@ -1,7 +1,5 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { AiAnalysisExplorer } from "@/components/ai-analysis-explorer";
-import { DashboardHeader } from "@/components/dashboard-header";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 async function AiExplorerContent() {
@@ -35,9 +33,17 @@ async function AiExplorerContent() {
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
-      <DashboardHeader organizationName={organization.name} userEmail={user.email ?? ""} />
+      <header className="border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-[1440px] items-center justify-between px-5 py-4 sm:px-8">
+          <span className="font-semibold text-slate-900">{organization.name}</span>
+          <span className="text-sm text-slate-600">{user.email ?? ""}</span>
+        </div>
+      </header>
       <div className="mx-auto max-w-[1440px] px-5 py-8 sm:px-8 lg:py-10">
-        <AiAnalysisExplorer organizationId={organization.id} preferredLanguage={profile?.preferred_language ?? "lt"} />
+        <section className="rounded-xl border border-slate-200 bg-white p-6">
+          <h1 className="text-xl font-semibold text-slate-900">AI analizė</h1>
+          <p className="mt-2 text-sm text-slate-600">AI analizės naršyklė šiuo metu nepasiekiama.</p>
+        </section>
       </div>
     </main>
   );
